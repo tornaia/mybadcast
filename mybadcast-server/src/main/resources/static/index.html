@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MyBadCast</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script>
+        function getUrlVars() {
+            const vars = {};
+            window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m, key, value) => vars[key] = value);
+            return vars;
+        }
+
+        function openWebsocket() {
+            let userid = getUrlVars()['userid'];
+            if (userid === null || userid === undefined || userid === '') {
+                alert('No userid provided');
+                return;
+            }
+
+            const socket = new SockJS("/websocket");
+            const stompClient = Stomp.over(socket);
+
+            stompClient.connect({}, function (frame) {
+                let destination = '/topic/events/' + userid;
+                stompClient.subscribe(destination, function (message) {
+                    let event = JSON.parse(message.body);
+                    let videoid = event.videoid;
+                    let currentTime = event.currentTime;
+                    let type = event.type;
+
+                    let iframe = document.getElementById('iframe');
+                    switch (type) {
+                        case 'CHANGE':
+                        case 'REWIND':
+                        case 'FAST_FORWARD':
+                            console.log('Play ' + videoid + ', start: ' + currentTime);
+                            iframe.src = 'https://www.youtube.com/embed/' + videoid + '?&autoplay=1&start=' + currentTime;
+                            break;
+                        case 'PLAYING':
+                            console.log('Play ' + videoid + ', start: ' + currentTime);
+                            iframe.src = 'https://www.youtube.com/embed/' + videoid + '?&autoplay=1&start=' + currentTime;
+                            break;
+                        case 'PAUSE':
+                            console.log('Pause is not properly implemented');
+                            iframe.src = '';
+                            break;
+                        default:
+                            throw Error('Must not happen, type: ' + type);
+
+                    }
+                });
+            }, function (message) {
+                openWebsocket();
+            });
+        }
+    </script>
+</head>
+<body style="text-align: center; margin: 0; padding-top: 64px; width: 100%; height: 320px;" onload="openWebsocket();">
+<iframe id="iframe" src="" allow="autoplay; encrypted-media;" width="640" height="480" style="border: 0;"></iframe>
+</body>
+</html>
